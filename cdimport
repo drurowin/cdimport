@@ -36,6 +36,133 @@ VERSION='0rc1'
     exit
 }
 
+function print_help() {
+    groff -m man -T utf8 <<GROFFER | less
+.TH cdimport 1 "2013-03"
+.SH NAME
+cdimport \- semi-automatic CD import script
+
+.SH SYNOPSIS
+\fBcdimport [-fnT] [-d \fIinput\fB] [-e \fIextension\fB] [-F
+\fIffmpeg\fB] [-o \fIoutpath\fB] [@\fImeta-name value\fB]*\fP
+
+\fBcdimport -h\fP
+
+\fBcdimport -v\fP
+
+.SH DESCRIPTION
+
+\fBcdimport\fP imports a CD or other collected music data into a
+central location. Additionally, \fBcdimport\fP sets relevant
+metadata. The track title and track number (if present) are set
+automatically from the file name. Options are processed in the order
+specified. Later override earlier ones.
+
+This utility relies on \fBffmpeg\fP(1) to do the conversion. As such,
+it must be installed to do anything useful. Coincidentally, this also
+means that the wide variety of input formats that ffmpeg understands
+are understood by this program.
+
+Summary information is printed to STDERR, and is used as an aid in
+double-checking metadata and save location before running. Since some
+CDs can take a long time to process, this is a good time to find
+mistakes. This may be safely discarded.
+
+.SH OPTIONS
+
+.IP "-d, --dir \fIinput-path\fP"
+
+Use \fIinput-path\fP as the read directory. The default value is
+\$PWD.
+
+.IP "-e, --ext \fIextension\fP"
+
+Only read in files with the extension \fIextension\fP. This is useful
+when the directory also contains album art, and necessary when the
+\fBf\fP flag is used.
+
+.IP "-F \fIffmpeg\fP"
+
+Use the given path \fIffmpeg\fP as the location of the ffmpeg
+binary. The default value is the lead of \$PATH. If no binary can be
+found, or one is found but is invalid, the program will not continue.
+
+.IP "-f"
+
+In addition to metadata passed in using \fB@\fP, use the file
+"\fItrack\fP.ffmetadata" for inputing track metadata. This may be
+necessary to provide track titles with illegal file characters (such
+as '/' on POSIX systems) that could not otherwise be automatically
+detected.
+
+See the section FFMETADATA for a quick summary of the basics of this
+file.
+
+.IP "-h, --help"
+
+Display this help.
+
+.IP "-n, --dry-run"
+
+Display the ffmpeg commands that the utility would use, but do not
+execute them. The commands are printed to STDOUT.
+
+.IP "-o, --outdir \fIoutput-path\fP"
+
+By default, files are saved in "\fIartist\fP/\fIalbum\fP" in the
+prefix \$CDIMPORT_DEST. This option overrides that entire path, for
+when such behavior is unwanted.
+
+.IP "-T"
+
+By default, \fBcdimport\fP uses the first word of the file name as the
+track number. When this behavior is not wanted, \fB\-T\fP turns this
+off.
+
+Due to the way numbers are interpreted by the shell, track numbers
+beginning with zero are assumed to be in octal.
+
+.IP "-v"
+
+Display the program name and version, then exit.
+
+.IP "@\fImeta-name\fP \fIvalue\fP"
+
+Option for passing track metadata to ffmpeg. Specify this option as
+many times as there is metadata to pass.
+
+.SH FFMETADATA
+
+There is a supported ffmpeg input format called "ffmetadata" that
+stores track metadata similar to an INI file. This file must start
+with the line ";FFMETADATA1". Following are lines
+"\fIkey\fP=\fIvalue\fP".
+
+.SH ENVIRONMENT
+
+.IP CDIMPORT_DEST
+
+If set and not empty, this is the target prefix of converted
+files. The default value is "\$HOME/Music/cdimport".
+
+.SH BUGS
+
+There is no way to pass metadata onto a specific track. This might be
+problematic in the case where the track name contains characters that
+are illegal file characters, such as "/" on POSIX systems, for
+example.
+
+.SH AUTHOR
+
+Lucien Pullen <drurowin@gmail.com>
+
+.SH "SEE ALSO"
+
+.BR ffmpeg (1)
+
+GROFFER
+}
+
 ERR=0
 
 DIR=$(pwd)
@@ -72,7 +199,7 @@ while test ! -z "$1"; do
             shift
             ;;
         -h|--help)
-            echo "Help me!"
+            print_help
             exit
             ;;
         -n|--dry-run)
