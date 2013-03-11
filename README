@@ -1,0 +1,20 @@
+cdimport - semi-automatic CD import script
+
+cdimport imports a CD (or otherwise collected files of music) into a
+set location using FFmpeg. By default, the file name is parsed to
+compute the track number and track title. All metadata supported by
+the FLAC container (which is to say, basically anything you think of)
+is supported. Track-specific metadata is supported. Since cdimport
+uses FFmpeg, any input format that FFmpeg can read, cdimport can work
+with (even if half of it is AIFF, and half is WAV!).
+
+This script has been written with the opinion that a computer should
+store lossless copies of CD audio. Popular disk drives are large and
+cheap enough to support this ideal. As such, support for "lossy"
+formats like MPEG audio and Vorbis will never be officially
+included. If such a need arises, use your favorite conversion utility
+to do the translation, or modify the script yourself.
+
+For a brief synopsis of options, call the program with no
+arguments. For greatly detailed information, use the `-h' or `--help'
+flags.

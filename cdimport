@@ -69,6 +69,13 @@ double-checking metadata and save location before running. Since some
 CDs can take a long time to process, this is a good time to find
 mistakes. This summary may be safely discarded.
 
+This script has been written with the opinion that a computer should
+store lossless copies of CD audio. Popular disk drives are large and
+cheap enough to support this ideal. As such, support for "lossy"
+formats like MPEG audio and Vorbis will never be officially
+included. If such a need arises, use your favorite conversion utility
+to do the translation, or modify the script yourself.
+
 .SH OPTIONS
 
 .IP "-d, --dir \fIinput-path\fP"
