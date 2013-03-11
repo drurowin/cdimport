@@ -32,7 +32,7 @@ VERSION='0rc1'
     echo "Usage: cdimport [-fnT] [-d input] [-e extension] [-F ffmpeg] [-o outpath]"
     echo "                [@meta-name value]*"
     echo "       cdimport --help"
-    echo "       cdimport -v"
+    echo "       cdimport --version"
     exit
 }
 
@@ -124,7 +124,7 @@ By default, \fBcdimport\fP uses the first word of the file name as the
 track number. When this behavior is not wanted, \fB\-T\fP turns this
 off.
 
-.IP "-v"
+.IP "-v, --version"
 
 Display the program name and version, then exit.
 
@@ -223,7 +223,7 @@ while test ! -z "$1"; do
             NUMBER=
             shift
             ;;
-        -v)
+        -v|--version)
             echo "cdimport v$VERSION"
             exit
             ;;
