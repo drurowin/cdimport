@@ -296,7 +296,14 @@ for f in $FILES; do
     TITLE=$(echo ${TITLE%.*} | sed $'s/^[ \t]*//;s/[ \t]*$//')
 
     CMD="$FFMPEG -i $(escape "$DIR/$FILE")"
-    [[ $FFMETA == "t" ]] && CMD+=" -i $(escape "$FFMETAFILE") -map_metadata 0:1"
+    [[ $FFMETA == "t" ]] && {
+        CMD+=" -i $(escape "$DIR/$FFMETAFILE") -map_metadata 0:1"
+        TITLE=$(gawk 'BEGIN {FS="="} /^title=/ {print $NF}' $FFMETAFILE)
+        ALBUM=$(gawk 'BEGIN {FS="="} /^album=/ {print $NF}' $FFMETAFILE)
+        ARTIST=$(gawk 'BEGIN {FS="="} /^artist=/ {print $NF}' $FFMETAFILE)
+        track=$(gawk 'BEGIN {FS="="} /^track=/ {print $NF}' $FFMETAFILE)
+        [[ ! -z $track ]] && TRK=$track
+    }
     for meta in ${(k)metadata}; do
         track=$(echo $meta | awk 'BEGIN {FS=":"} /:/ {print $1}')
         name=$(echo $meta | awk 'BEGIN {FS=":"} /:/ {print $2}')
@@ -318,7 +325,9 @@ for f in $FILES; do
     [[ ! -z $OUTPATH ]] && {
         TARGET=$OUTPATH
     } || {
-        TARGET=$CDIMPORT_DEST/$(sanitize "$metadata[artist]")/$(sanitize "$metadata[album]")
+        [[ -z $ALBUM ]] && ALBUM=$metadata[album]
+        [[ -z $ARTIST ]] && ARTIST=$metadata[artist]
+        TARGET=$CDIMPORT_DEST/$(sanitize "$ARTIST")/$(sanitize "$ALBUM")
     }
 
     [[ $NUMBER == "t" ]] && {
