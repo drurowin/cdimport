@@ -381,7 +381,7 @@ for f in $FILES; do
         }
     done
 
-    [[ $NUMBER == "t" ]] && CMD+=" -metadata track=$TRK"
+    [[ $NUMBER == "t" ]] && CMD+=" -metadata track=$(printf "%i" "$TRK")"
 
     [[ ! -z $OUTPATH ]] && {
         TARGET=$OUTPATH
