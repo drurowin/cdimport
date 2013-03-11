@@ -55,8 +55,9 @@ cdimport \- semi-automatic CD import script
 \fBcdimport\fP imports a CD or other collected music data into a
 central location. Additionally, \fBcdimport\fP sets relevant
 metadata. The track title and track number (if present) are set
-automatically from the file name. Options are processed in the order
-specified. Later override earlier ones.
+automatically from the file name (but see the \fB@\fP option for an
+exception). Options are processed in the order specified. Later
+override earlier ones.
 
 This utility relies on \fBffmpeg\fP(1) to do the conversion. As such,
 it must be installed to do anything useful. Coincidentally, this also
@@ -66,7 +67,7 @@ are understood by this program.
 Summary information is printed to STDERR, and is used as an aid in
 double-checking metadata and save location before running. Since some
 CDs can take a long time to process, this is a good time to find
-mistakes. This may be safely discarded.
+mistakes. This summary may be safely discarded.
 
 .SH OPTIONS
 
@@ -90,10 +91,7 @@ found, or one is found but is invalid, the program will not continue.
 .IP "-f"
 
 In addition to metadata passed in using \fB@\fP, use the file
-"\fItrack\fP.ffmetadata" for inputing track metadata. This may be
-necessary to provide track titles with illegal file characters (such
-as '/' on POSIX systems) that could not otherwise be automatically
-detected.
+"\fItrack\fP.ffmetadata" for inputing track metadata.
 
 See the section FFMETADATA for a quick summary of the basics of this
 file.
@@ -119,9 +117,6 @@ By default, \fBcdimport\fP uses the first word of the file name as the
 track number. When this behavior is not wanted, \fB\-T\fP turns this
 off.
 
-Due to the way numbers are interpreted by the shell, track numbers
-beginning with zero are assumed to be in octal.
-
 .IP "-v"
 
 Display the program name and version, then exit.
@@ -130,6 +125,11 @@ Display the program name and version, then exit.
 
 Option for passing track metadata to ffmpeg. Specify this option as
 many times as there is metadata to pass.
+
+To pass track-specific metadata, use the form
+"\fItrack\fP:\fImeta-name\fP". When 'title' is specified this way (and
+\fBONLY\fP this way!), it will override track title from file name
+calculation. This form is only meaningful when not using -T.
 
 .SH FFMETADATA
 
@@ -147,10 +147,7 @@ files. The default value is "\$HOME/Music/cdimport".
 
 .SH BUGS
 
-There is no way to pass metadata onto a specific track. This might be
-problematic in the case where the track name contains characters that
-are illegal file characters, such as "/" on POSIX systems, for
-example.
+None that I'm aware of!
 
 .SH AUTHOR
 
@@ -300,7 +297,21 @@ for f in $FILES; do
 
     CMD="$FFMPEG -i $(escape "$DIR/$FILE")"
     [[ $FFMETA == "t" ]] && CMD+=" -i $(escape "$FFMETAFILE") -map_metadata 0:1"
-    for meta in ${(k)metadata}; do CMD+=" -metadata $meta=$(escape "${metadata[$meta]}")"; done
+    for meta in ${(k)metadata}; do
+        track=$(echo $meta | awk 'BEGIN {FS=":"} /:/ {print $1}')
+        name=$(echo $meta | awk 'BEGIN {FS=":"} /:/ {print $2}')
+        [[ -z $track ]] && {
+            CMD+=" -metadata $meta=$(escape "${metadata[$meta]}")"
+        } || {
+            ((track == TRK)) && {
+                [[ $(print -- $name | gawk '{print tolower($0)}') == "title" ]] && {
+                    TITLE=${metadata[$meta]}
+                } || {
+                    CMD+=" -metadata $name=$(escape "${metadata[$meta]}")"
+                }
+            }
+        }
+    done
     [[ $NUMBER == "t" ]] && CMD+=" -metadata track=$TRK"
     CMD+=" -metadata title=$(escape "$TITLE")"
 
