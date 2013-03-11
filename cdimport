@@ -37,7 +37,7 @@ VERSION='1.1'
 }
 
 function print_help() {
-    groff -m man -T utf8 <<GROFFER | less
+    groff -m man -T "$1" <<GROFFER | less
 .TH cdimport 1 "2013-03"
 .SH NAME
 cdimport \- semi-automatic CD import script
@@ -231,7 +231,12 @@ while test ! -z "$1"; do
             shift
             ;;
         -h|--help)
-            print_help
+            [[ $(print -- $2 | cut -c 1) == "T" ]] && {
+                fmt=${2[2,-1]}
+            } || {
+                fmt=ascii
+            }
+            print_help "${fmt}"
             exit
             ;;
         -n|--dry-run)
