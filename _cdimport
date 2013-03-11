@@ -1,0 +1,34 @@
+#compdef cdimport
+
+local -a run_opts
+
+run_opts=(
+    -A --album
+    -a --artist
+    -c
+    -d --dir
+    -e --ext
+    -F
+    -f --ffmetadata
+    -g --genre
+    -L --label
+    -T --file-name-has-track-num
+    -r --date
+    -! --dry-run
+)
+
+_arguments \
+    "(-h --help -A --album)"{-A,--album}'[album name]:album' \
+    "(-h --help -a --artist)"{-a,--artist}'[artist name]:artist' \
+    "(-h --help)"-c'[catalog number]' \
+    "(-h --help -d --dir)"{-d,--dir}'[parse directory]:dir dir:_files -/' \
+    "(-h --help -e --ext)"{-e,--ext}'[parse extension]:ext' \
+    "(-h --help)"-F'[force use of given ffmpeg]:exe ffmpeg:_files' \
+    "(-h --help -f --ffmetadata)"{-f,--ffmetadata}'[use ffmetadata files]' \
+    "(-h --help -g --genre)"{-g,--genre}'[genre]:genre' \
+    "($run_opts -h --help)"{-h,--help}'[display help]' \
+    "(-h --help -L --label)"{-L,--label}'[record label]:label' \
+    "(-h --help)"-T'[first word is track number]' \
+    "(-h --help -r --date)"{-r,--date}'[release date]:date' \
+    "(-h --help -! --dry-run)"{-!,--dry-run}'[display commands to execute]' \
+    && return 0

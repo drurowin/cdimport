@@ -1,0 +1,282 @@
+#!/bin/bash
+# Import a CD and add metadata
+
+${CDIMPORT_DEST:=$HOME/Music/cdimport} 2>/dev/null
+
+VERSION="2.4.1"
+
+function _help() {
+cat <<KOKO
+NAME
+	cdimport - semi-automatic CD importer
+
+SYNOPSIS
+	cdimport options
+
+OPTIONS
+	-A, --album album
+
+	-a, --artist artist
+
+	-c catalog-number
+
+	-d, --dir directory
+		Input directory. Default is to search in \$PWD.
+
+	-e, --ext extension
+		Exclude all file types except this. Defaults to nothing (run
+		on all files). Useful when converting a directory that has
+		other files in it.
+
+	-F ffmpeg binary
+		Absolute path to the ffmpeg binary that is to be used. Default
+		is the front of the path.
+
+	-f, --ffmetadata
+		Use metadata from the file "track.ffmetadata". See the
+		ffmpeg documentation for details. Overrides metadata arguments
+		passed to cdimport.
+
+	-g, --genre genre
+
+	-h, --help
+
+	-L, --label record-label
+
+	-r, --date release-date
+
+	-T
+		The track filenames are composed of "number name.ext".
+		Automatically set the 'track' metadata thusly.
+
+		Numbers starting with zero are interpreted to be octal.
+
+	-v
+		Display program name and version, then exit.
+
+	-!, --dry-run
+		Print the commands to be executed (along with the normal
+		summary information), but do not execute them.
+
+ENVIRONMENT
+	CDIMPORT_DEST
+		Save prefix; default "\$HOME/Music/cdimport"
+
+AUTHOR
+	Lucien Pullen <drurowin@gmail.com>
+KOKO
+}
+
+function check() {
+if [ "$2" != "" ]; then
+    printf "%-28s%-10s\n" "$1" "$2"
+else
+    printf "%-28s%-10s\n" "$1" "$3"
+fi
+}
+
+function escape() {
+    echo \'$(echo $1 | sed "s/'/'\\\''/g")\'
+}
+
+function -metadata() {
+    echo "-metadata $1=$(escape "$2")"
+}
+
+function sanitize() {
+    echo $(echo $1 | sed 's/\[//g;s/\]//g;s/['\''"(){}:]//g;s/[ ]\{2,\}/ /g;s/\///g')
+}
+
+ERR=0
+ALBUM=
+ARTIST=
+CATALOG=
+DIR=.
+EXT=
+GENRE=
+NUMBER=no
+FFMETA=no
+FORCE=no
+DATE=
+DRYRUN=0
+LABEL=
+metadata=
+
+OPT=$(getopt -o A:a:c:d:e:F:fg:hTL:m:r:v\! \
+    --long album:,artist:,dir:,ext:,ffmetadata,genre:,help,file-name-has-track-num,date:,dry-run,label: \
+    -- "$@")
+
+eval set -- "$OPT"
+while true; do
+    case "$1" in
+    -A|--album)
+        ALBUM=$2
+        shift 2
+        ;;
+    -a|--artist)
+        ARTIST=$2
+        shift 2
+        ;;
+    -c)
+        CATALOG=$2
+        shift 2
+        ;;
+    -d|--dir)
+        DIR=$2
+        shift 2
+        ;;
+    -e|--ext)
+        EXT=$2
+        shift 2
+        ;;
+    -F)
+        FORCE=yes
+        FFMPEG=$2
+        shift 2
+        ;;
+    -f|--ffmetadata)
+        FFMETA=yes
+        shift
+        ;;
+    -g|--genre)
+        GENRE=$2
+        shift 2
+        ;;
+    -h|--help)
+        _help
+        exit 0
+        shift
+        ;;
+    -L|--label)
+        LABEL=$2
+        shift 2
+        ;;
+        -m)
+            name=$2
+            value=$3
+            echo "-metadata $name=$value"
+            shift 3
+            ;;
+    -T|--file-name-has-track-num)
+        NUMBER=yes
+        shift
+        ;;
+    -r|--date)
+        DATE=$2
+        shift 2
+        ;;
+        -v)
+            echo "cdimport v$VERSION"
+            exit 0
+            ;;
+    -\!|--dry-run)
+        DRYRUN=1
+        shift
+        ;;
+    --)
+        shift
+        break
+        ;;
+    *)
+        echo "Error with getopt"
+        exit 1
+        ;;
+    esac
+done
+echo "Extra arguments not parsed:"
+for arg do echo '  --> '"\`$arg'"; done
+
+if [ ! -d "$DIR" ]; then
+    echo "$DIR: no such directory"
+    ERR=$((ERR+1))
+fi
+
+[[ $FORCE = no ]] && {
+    ffmpeg >/dev/null 2>/dev/null
+    case $? in
+        126)FFMPEG=found, but not executable
+            ERR=$((ERR+1))
+            ;;
+        127)FFMPEG="[31mno[0m"
+            ERR=$((ERR+1))
+            ;;
+        *)  FFMPEG=$(which ffmpeg)
+            ;;
+    esac
+}
+
+check "Testing for FFmpeg..." "$FFMPEG"
+
+check "CD path" "$DIR"
+check "Album name" "$ALBUM" "--COPY--"
+check "Artist name" "$ARTIST" "--COPY--"
+check "Genre" "$GENRE" "--COPY--"
+check "Label" "$LABEL" "--COPY--"
+check "Catalog Number" "$CATALOG" "--COPY--"
+check "Release date" "$DATE" "--COPY--"
+
+check "File has track number" "$NUMBER"
+check "File uses ffmetadata" "$FFMETA"
+check "File extension" "$EXT" "--ALL--"
+
+if [ $ERR -gt 0 ]; then
+    echo "Check 'cdimport -h' for some help."
+    exit $ERR
+fi
+
+OLDIFS=$IFS
+IFS=$'\n'
+FILES=$(ls -1 "$DIR")
+
+for f in $FILES; do
+    IFS=$' \t\n'
+    if [ "$EXT" != "" ]; then
+        TF=${f##*.}
+        [[ $TF != $EXT ]] && continue
+    fi
+    f=$(echo -n $f | awk 'BEGIN {FS="/"} {print $NF}')
+    if [ $NUMBER = yes ]; then
+        TRK=$(echo $f | awk '{print $1}')
+        TRK=$(echo $TRK | sed 's/^[ 	]*//;s/[ 	]*$//')
+
+        TITLE=$(echo $f | awk '{$1=""; print}')
+        TITLE=${TITLE%.*}
+        FFMETAFILE=$TRK.ffmetadata
+    else
+        TITLE=${f%.*}
+    fi
+    TITLE=$(echo $TITLE | sed 's/^[ 	]*//;s/[ 	]*$//')
+
+    # Make sure we don't clobber metadata that's already there
+    cd "$DIR"
+    CMD="$FFMPEG -i \"$f\""
+    [[ $FFMETA = yes ]] && {
+        CMD="$CMD -i $FFMETAFILE -map_metadata 0:1"
+        TITLE=$(cat $FFMETAFILE | awk 'BEGIN {FS="="} /^title=/ {print $NF}' | sed 's/[:/ ]/_/g')
+        TRK=$(cat $FFMETAFILE | awk 'BEGIN {FS="="} /^track=/ {print $NF}')
+        ALBUM=$(cat $FFMETAFILE | awk 'BEGIN {FS="="} /^album=/ {print $NF}' | sed 's/[:/ ,&]/_/g')
+        ARTIST=$(cat $FFMETAFILE | awk 'BEGIN {FS="="} /^artist=/ {print $NF}' | sed 's/[:/ ,&]/_/g')
+    } || {
+        [[ $ALBUM != "" ]] && CMD="$CMD $(-metadata album "$ALBUM")"
+        [[ $ARTIST != "" ]] && CMD="$CMD $(-metadata artist "$ARTIST")"
+        [[ $GENRE != "" ]] && CMD="$CMD $(-metadata genre "$GENRE")"
+        [[ $NUMBER = yes ]] && CMD="$CMD $(-metadata track "$TRK")"
+        [[ $TITLE != "" ]] && CMD="$CMD $(-metadata title "$TITLE")"
+        [[ $DATE != "" ]] && CMD="$CMD $(-metadata date "$DATE")"
+        [[ $LABEL != "" ]] && CMD="$CMD $(-metadata label "$LABEL")"
+        [[ $CATALOG != "" ]] && CMD="$CMD $(-metadata CATALOG_NUMBER "$CATALOG")"
+    }
+
+    CMD="$CMD -y \"$CDIMPORT_DEST/$(sanitize "$ARTIST")/$(sanitize "$ALBUM")/$(printf "%02i" $TRK) -- $(sanitize "$TITLE").flac\""
+
+    if [ $DRYRUN -eq 1 ];then
+        echo $CMD
+    else
+        mkdir -p "$CDIMPORT_DEST/$(sanitize "$ARTIST")/$(sanitize "$ALBUM")"
+        eval $CMD
+    fi
+
+    IFS=$'\n'
+done
+
+IFS=$OLDIFS
