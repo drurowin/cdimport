@@ -58,8 +58,7 @@ value\fB]*\fP
 central location. Additionally, \fBcdimport\fP sets relevant
 metadata. The track title and track number (if present) are set
 automatically from the file name (but see the \fB@\fP option for an
-exception). Options are processed in the order specified. Later
-override earlier ones.
+exception).
 
 This utility relies on \fBffmpeg\fP(1) to do the conversion. As such,
 it must be installed to do anything useful. Coincidentally, this also
@@ -159,6 +158,20 @@ To pass track-specific metadata, use the form
 "\fItrack\fP:\fImeta-name\fP". When 'title' is specified this way (and
 \fBONLY\fP this way!), it will override track title from file name
 calculation. This form is only meaningful when not using -T.
+
+Declared metadata, embedded metadata, and ffmetadata file metadata
+follow the following rules:
+
+.in +2
+
+\fB1.\fP ffmetadata file metadata overrides embedded metadata.
+
+\fB2.\fP Declared metadata overrides ffmetadata file metadata.
+
+\fB3.\fP Declared metadata is unique. Redeclaring metadata clobbers
+the previous definition.
+
+.in -2
 
 .SH FFMETADATA
 
