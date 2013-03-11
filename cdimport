@@ -76,6 +76,29 @@ formats like MPEG audio and Vorbis will never be officially
 included. If such a need arises, use your favorite conversion utility
 to do the translation, or modify the script yourself.
 
+.SS OUTPUT FORMAT
+
+Files are saved using the FLAC format. The naming scheme is as
+follows:
+
+.in +2
+\fIdisc#\fP.\fItrack#\fP \-\- \fItitle\fP.flac
+.in -2
+
+When there is no track number (-T was specified and there was no
+"track" field in the ffmetadata file), the fields "disc#" and
+"track#", and the leading dot, will be absent.
+
+When there is no disc number (not declared or in ffmetadata file), the
+field "disc#" and the proceeding dot will be absent.
+
+When neither the track number nor disc number are specified, the file
+name will be as such:
+
+.in +2
+\fItitle\fP.flac
+.in -2
+
 .SH OPTIONS
 
 .IP "-d, --dir \fIinput-path\fP"
@@ -293,6 +316,7 @@ for f in $FILES; do
 
     FILE=$(echo -n $f | awk 'BEGIN {FS="/"} {print $NF}')
     TITLE=$FILE
+    DISC=
     [[ $NUMBER == "t" ]] && {
         TRK=$(echo $FILE | awk '{print $1}')
 
@@ -309,23 +333,44 @@ for f in $FILES; do
         ALBUM=$(gawk 'BEGIN {FS="="} /^album=/ {print $NF}' $FFMETAFILE)
         ARTIST=$(gawk 'BEGIN {FS="="} /^artist=/ {print $NF}' $FFMETAFILE)
         track=$(gawk 'BEGIN {FS="="} /^track=/ {print $NF}' $FFMETAFILE)
+        DISC=$(gawk 'BEGIN {FS="="} /^disc=/ {print $NF}' $FFMETAFILE)
         [[ ! -z $track ]] && TRK=$track
     }
+
     for meta in ${(k)metadata}; do
         track=$(echo $meta | awk 'BEGIN {FS=":"} /:/ {print $1}')
         name=$(echo $meta | awk 'BEGIN {FS=":"} /:/ {print $2}')
+        value=${metadata[$meta]}
+        [[ -z $track ]] && name=$meta
+        name=$(print -- $name | gawk '{print tolower($0)}')
         [[ -z $track ]] && {
-            CMD+=" -metadata $meta=$(escape "${metadata[$meta]}")"
+            case "$name" in
+                disc|discnumber)
+                    DISC=$value
+                    CMD+=" -metadata $name=$(escape "$value")"
+                    ;;
+                *)
+                    CMD+=" -metadata $name=$(escape "$value")"
+                    ;;
+            esac
         } || {
             ((track == TRK)) && {
-                [[ $(print -- $name | gawk '{print tolower($0)}') == "title" ]] && {
-                    TITLE=${metadata[$meta]}
-                } || {
-                    CMD+=" -metadata $name=$(escape "${metadata[$meta]}")"
-                }
+                case "$name" in
+                    title)
+                        TITLE=$value
+                        ;;
+                    disc|discnumber)
+                        DISC=$value
+                        CMD+=" -metadata $name=$(escape "$value")"
+                        ;;
+                    *)
+                        CMD+=" -metadata $name=$(escape "$value")"
+                        ;;
+                esac
             }
         }
     done
+
     [[ $NUMBER == "t" ]] && CMD+=" -metadata track=$TRK"
     CMD+=" -metadata title=$(escape "$TITLE")"
 
@@ -337,11 +382,14 @@ for f in $FILES; do
         TARGET=$CDIMPORT_DEST/$(sanitize "$ARTIST")/$(sanitize "$ALBUM")
     }
 
-    [[ $NUMBER == "t" ]] && {
-        CMD+=" -y '$TARGET/$(printf "%02i" $TRK) -- $(sanitize "$TITLE").flac'"
+    DISC=$(echo $DISC | gawk 'BEGIN {FS="/"} {print $1}')
+    [[ ! -z $DISC && ! -z $TRK ]] && {
+        DISC=$(printf "%02i." $DISC)
     } || {
-        CMD+=" -y '$TARGET/$(sanitize "$TITLE").flac'"
+        DISC=
     }
+    [[ ! -z $TRK ]] && TRK=$(printf "%02i -- " $TRK)
+    CMD+=" -y '$TARGET/$DISC$TRK$(sanitize "$TITLE").flac'"
 
     [[ ! -z $NOEXEC ]] && {
         echo $CMD
