@@ -46,9 +46,9 @@ cdimport \- semi-automatic CD import script
 \fBcdimport [-fnT] [-d \fIinput\fB] [-e \fIextension\fB] [-F
 \fIffmpeg\fB] [-o \fIoutpath\fB] [@\fImeta-name value\fB]*\fP
 
-\fBcdimport -h\fP
+\fBcdimport --help\fP
 
-\fBcdimport -v\fP
+\fBcdimport --version\fP
 
 .SH DESCRIPTION
 
