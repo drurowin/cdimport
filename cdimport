@@ -29,8 +29,8 @@
 VERSION='1.1'
 
 [[ $# -eq 0 ]] && {
-    echo "Usage: cdimport [-fnT] [-d input] [-e extension] [-F ffmpeg] [-o outpath]"
-    echo "                [@meta-name value]*"
+    echo "Usage: cdimport [-nT] [-d input] [-e extension] [-F ffmpeg] [-f metapath]"
+    echo "                [-o outpath] [@meta-name value]*"
     echo "       cdimport --help"
     echo "       cdimport --version"
     exit
@@ -43,8 +43,10 @@ function print_help() {
 cdimport \- semi-automatic CD import script
 
 .SH SYNOPSIS
-\fBcdimport [-fnT] [-d \fIinput\fB] [-e \fIextension\fB] [-F
-\fIffmpeg\fB] [-o \fIoutpath\fB] [@\fImeta-name value\fB]*\fP
+
+\fBcdimport [-nT] [-d \fIinput\fB] [-e \fIextension\fB] [-F
+\fIffmpeg\fB] [-f \fImetapath\fB] [-o \fIoutpath\fB] [@\fImeta-name
+value\fB]*\fP
 
 \fBcdimport --help\fP
 
@@ -109,8 +111,7 @@ Use \fIinput-path\fP as the read directory. The default value is
 .IP "-e, --ext \fIextension\fP"
 
 Only read in files with the extension \fIextension\fP. This is useful
-when the directory also contains album art, and necessary when the
-\fBf\fP flag is used.
+when the directory also contains album art.
 
 .IP "-F \fIffmpeg\fP"
 
@@ -118,10 +119,10 @@ Use the given path \fIffmpeg\fP as the location of the ffmpeg
 binary. The default value is the lead of \$PATH. If no binary can be
 found, or one is found but is invalid, the program will not continue.
 
-.IP "-f"
+.IP "-f \fImeta-path\fP"
 
-In addition to metadata passed in using \fB@\fP, use the file
-"\fItrack\fP.ffmetadata" for inputing track metadata.
+Search path for ffmetadata files. Default is to use the input
+directory.
 
 See the section FFMETADATA for a quick summary of the basics of this
 file.
@@ -193,13 +194,13 @@ GROFFER
 ERR=0
 
 DIR=$(pwd)
+METAPATH=
 EXT=
 FFMPEG=
 OUTPATH=
 
 typeset -A metadata
 NUMBER=t
-FFMETA=
 
 NOEXEC=
 
@@ -227,8 +228,8 @@ while test ! -z "$1"; do
             shift 2
             ;;
         -f)
-            FFMETA=t
-            shift
+            METAPATH=$2
+            shift 2
             ;;
         -h|--help)
             [[ $(print -- $2 | cut -c 1) == "T" ]] && {
@@ -267,6 +268,8 @@ done
     ERR+=1
 }
 
+[[ -z $METAPATH ]] && METAPATH=$DIR
+
 [[ -z $FFMPEG ]] && {
     ffmpeg >/dev/null 2>/dev/null
     case $? in
@@ -302,9 +305,9 @@ function sanitize() {
 
 check "Testing for FFmpeg..." "$FFMPEG" >&2
 check "Input path" "$DIR" >&2
+check "FFmetadata path" "$METAPATH" >&2
 check "Output path" "$OUTPATH" "$CDIMPORT_DEST" >&2
 check "Embedded track number" "$NUMBER" >&2
-check "FFmetadata" "$FFMETA" >&2
 check "File extension" "$EXT" "*" >&2
 echo "Declared metadata" >&2
 for k in ${(k)metadata}; do
@@ -318,6 +321,7 @@ FILES=("${(@f)$(ls -1 "$DIR")}")
 
 for f in $FILES; do
     [[ ! -z $EXT && ${f##*.} != $EXT ]] && continue;
+    [[ ${f##*.} == "ffmetadata" ]] && continue;
 
     FILE=$(echo -n $f | awk 'BEGIN {FS="/"} {print $NF}')
     TITLE=$FILE
@@ -327,18 +331,18 @@ for f in $FILES; do
 
         TITLE=$(echo $FILE | awk '{$1=""; print}')
 
-        FFMETAFILE=$TRK.ffmetadata
+        FFMETAFILE=$METAPATH/$TRK.ffmetadata
     }
     TITLE=$(echo ${TITLE%.*} | sed $'s/^[ \t]*//;s/[ \t]*$//')
 
     CMD="$FFMPEG -i $(escape "$DIR/$FILE")"
-    [[ $FFMETA == "t" ]] && {
-        CMD+=" -i $(escape "$DIR/$FFMETAFILE") -map_metadata 0:1"
-        TITLE=$(gawk 'BEGIN {FS="="} /^title=/ {print $NF}' $FFMETAFILE)
+    [[ -r $FFMETAFILE && -f $FFMETAFILE ]] && {
+        CMD+=" -i $(escape "$FFMETAFILE") -map_metadata 0:1"
+        FFTITLE=$(gawk 'BEGIN {FS="="} /^title=/ {print $NF}' $FFMETAFILE)
         ALBUM=$(gawk 'BEGIN {FS="="} /^album=/ {print $NF}' $FFMETAFILE)
         ARTIST=$(gawk 'BEGIN {FS="="} /^artist=/ {print $NF}' $FFMETAFILE)
         track=$(gawk 'BEGIN {FS="="} /^track=/ {print $NF}' $FFMETAFILE)
-        DISC=$(gawk 'BEGIN {FS="="} /^disc=/ {print $NF}' $FFMETAFILE)
+        DISC=$(gawk 'BEGIN {FS="="} /^disc(number)?=/ {print $NF}' $FFMETAFILE)
         [[ ! -z $track ]] && TRK=$track
     }
 
@@ -362,6 +366,7 @@ for f in $FILES; do
             ((track == TRK)) && {
                 case "$name" in
                     title)
+                        unset FFTITLE
                         TITLE=$value
                         ;;
                     disc|discnumber)
@@ -377,7 +382,6 @@ for f in $FILES; do
     done
 
     [[ $NUMBER == "t" ]] && CMD+=" -metadata track=$TRK"
-    CMD+=" -metadata title=$(escape "$TITLE")"
 
     [[ ! -z $OUTPATH ]] && {
         TARGET=$OUTPATH
@@ -387,6 +391,11 @@ for f in $FILES; do
         TARGET=$CDIMPORT_DEST/$(sanitize "$ARTIST")/$(sanitize "$ALBUM")
     }
 
+    [[ ! -z $FFTITLE ]] && {
+        TITLE=$FFTITLE
+    } || {
+        CMD+=" -metadata title=$(escape "$TITLE")"
+    }
     DISC=$(echo $DISC | gawk 'BEGIN {FS="/"} {print $1}')
     [[ ! -z $DISC && ! -z $TRK ]] && {
         DISC=$(printf "%02i." $DISC)
