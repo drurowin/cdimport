@@ -84,18 +84,16 @@ Files are saved using the FLAC format. The naming scheme is as
 follows:
 
 .in +2
-\fIdisc#\fP.\fItrack#\fP \-\- \fItitle\fP.flac
+\fIdisc#\fP.\fItrack#\fP -- \fItitle\fP.flac
 .in -2
 
-When there is no track number (-T was specified and there was no
-"track" field in the ffmetadata file), the fields "disc#" and
-"track#", and the leading dot, will be absent.
+When there is no disc number, the naming scheme is:
 
-When there is no disc number (not declared or in ffmetadata file), the
-field "disc#" and the proceeding dot will be absent.
+.in +2
+\fItrack#\fP -- \fItitle\fP.flac
+.in -2
 
-When neither the track number nor disc number are specified, the file
-name will be as such:
+When there is no track number, the naming scheme is:
 
 .in +2
 \fItitle\fP.flac
