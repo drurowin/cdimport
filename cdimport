@@ -341,7 +341,6 @@ done
 for k in ${(k)track_metadata}; do
     echo "\t$k: $track_metadata[$k]" >&2
 done
-[[ ! -z $NOEXEC ]] && echo "[33mDry running.[0m" >&2
 
 ((ERR > 0)) && exit 1
 
