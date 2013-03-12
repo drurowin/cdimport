@@ -171,6 +171,9 @@ follow the following rules:
 \fB3.\fP Declared metadata is unique. Redeclaring metadata clobbers
 the previous definition.
 
+\fB4.\fP Track-specific declared metadata overrides non-track-specific
+metadata.
+
 .in -2
 
 .SH FFMETADATA
@@ -211,13 +214,24 @@ FFMPEG=
 OUTPATH=
 
 typeset -A metadata
+typeset -A track_metadata
 NUMBER=t
 
 NOEXEC=
 
 while test ! -z "$1"; do
     [[ $(echo "$1" | cut -c 1) == "@" ]] && {
-        metadata[${1[2,-1]}]=$2
+        meta=${1[2,-1]}
+        track=$(print -- $meta | awk 'BEGIN {FS=":"} /:/ {print $1}')
+        name=$(print -- $meta | awk 'BEGIN {FS=":"} /:/ {print $2}')
+        [[ -z $track ]] && name=$meta
+        name=$(print -- $name | gawk '{print tolower($0)}')
+        [[ -z $track ]] && {
+            metadata[$name]=$2
+        } || {
+            track_metadata[$(printf "%i:%s" "$track" "$name")]=$2
+            [[ -z $metadata[$name] ]] && metadata[$name]=""
+        }
         shift 2
         continue
     }
@@ -322,7 +336,10 @@ check "Embedded track number" "$NUMBER" >&2
 check "File extension" "$EXT" "*" >&2
 echo "Declared metadata" >&2
 for k in ${(k)metadata}; do
-    echo "\t$k: ${metadata[$k]}" >&2
+    [[ ! -z $metadata[$k] ]] && echo "\t$k: ${metadata[$k]}" >&2
+done
+for k in ${(k)track_metadata}; do
+    echo "\t$k: $track_metadata[$k]" >&2
 done
 [[ ! -z $NOEXEC ]] && echo "[33mDry running.[0m" >&2
 
@@ -358,38 +375,22 @@ for f in $FILES; do
     }
 
     for meta in ${(k)metadata}; do
-        track=$(echo $meta | awk 'BEGIN {FS=":"} /:/ {print $1}')
-        name=$(echo $meta | awk 'BEGIN {FS=":"} /:/ {print $2}')
-        value=${metadata[$meta]}
-        [[ -z $track ]] && name=$meta
-        name=$(print -- $name | gawk '{print tolower($0)}')
-        [[ -z $track ]] && {
-            case "$name" in
-                disc|discnumber)
-                    DISC=$value
-                    CMD+=" -metadata $name=$(escape "$value")"
-                    ;;
-                *)
-                    CMD+=" -metadata $name=$(escape "$value")"
-                    ;;
-            esac
-        } || {
-            ((track == TRK)) && {
-                case "$name" in
-                    title)
-                        unset FFTITLE
-                        TITLE=$value
-                        ;;
-                    disc|discnumber)
-                        DISC=$value
-                        CMD+=" -metadata $name=$(escape "$value")"
-                        ;;
-                    *)
-                        CMD+=" -metadata $name=$(escape "$value")"
-                        ;;
-                esac
-            }
-        }
+        value=$track_metadata[$(printf "%i:%s" "$TRK" "$meta")]
+        [[ -z $value ]] && [[ -z $metadata[$meta] ]] && continue
+        [[ -z $value ]] && value=$metadata[$meta]
+        case "$meta" in
+            title)
+                unset FFTITLE
+                TITLE=$value
+                ;;
+            disc|discnumber)
+                DISC=$value
+                CMD+=" -metadata $meta=$(escape "$value")"
+                ;;
+            *)
+                CMD+=" -metadata $meta=$(escape "$value")"
+                ;;
+        esac
     done
 
     [[ $NUMBER == "t" ]] && CMD+=" -metadata track=$(printf "%i" "$TRK")"
