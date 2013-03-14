@@ -46,7 +46,7 @@ cdimport \- semi-automatic CD import script
 
 \fBcdimport [-nT] [-d \fIinput\fB] [-e \fIextension\fB] [-F
 \fIffmpeg\fB] [-f \fImetapath\fB] [-o \fIoutpath\fB] [@\fImeta-name
-value\fB]*\fP
+value\fB]... [@\fImeta-name\fP=\fIvalue\fB]...\fP
 
 \fBcdimport --help\fP
 
@@ -149,10 +149,11 @@ off.
 
 Display the program name and version, then exit.
 
-.IP "@\fImeta-name\fP \fIvalue\fP"
+.IP "@\fImeta-name\fP \fIvalue\fP OR @\fImeta-name\fP=\fIvalue\fP"
 
 Option for passing track metadata to ffmpeg. Specify this option as
-many times as there is metadata to pass.
+many times as there is metadata to pass. The second form allows sane
+shell expansion.
 
 To pass track-specific metadata, use the form
 "\fItrack\fP:\fImeta-name\fP". When 'title' is specified this way (and
@@ -173,6 +174,10 @@ the previous definition.
 
 \fB4.\fP Track-specific declared metadata overrides non-track-specific
 metadata.
+
+\fB5.\fP All metadata keys cannot have an equal sign ("=") in
+them. This is a limitation imposed by ffmpeg. Values may have equal
+signs.
 
 .in -2
 
@@ -225,14 +230,21 @@ while test ! -z "$1"; do
         track=$(print -- $meta | awk 'BEGIN {FS=":"} /:/ {print $1}')
         name=$(print -- $meta | awk 'BEGIN {FS=":"} /:/ {print $2}')
         [[ -z $track ]] && name=$meta
+        [[ ! -z $(print -- $name | awk '/=/ {print "="}') ]] && {
+            name=$(print -- $name | awk 'BEGIN {FS="="} {print $1}')
+            value=$(print -- $meta | awk 'BEGIN {FS="="} {res=$2; for(i = 3; i <= NF; i++) { res = res "=" $i; } print res; }')
+            shift
+        } || {
+            value=$2
+            shift 2
+        }
         name=$(print -- $name | gawk '{print tolower($0)}')
         [[ -z $track ]] && {
-            metadata[$name]=$2
+            metadata[$name]=$value
         } || {
-            track_metadata[$(printf "%i:%s" "$track" "$name")]=$2
+            track_metadata[$(printf "%i:%s" "$track" "$name")]=$value
             [[ -z $metadata[$name] ]] && metadata[$name]=""
         }
-        shift 2
         continue
     }
     [[ $(echo -- "$1" | cut -c 1) != "-" ]] && {
