@@ -30,7 +30,7 @@ VERSION='1.2'
 
 [[ $# -eq 0 ]] && {
     echo "Usage: cdimport [-nT] [-d input] [-e extension] [-F ffmpeg] [-f metapath]"
-    echo "                [-o outpath] [@meta-name value]*"
+    echo "                [-o outpath] [@meta-name value]..."
     echo "       cdimport --help"
     echo "       cdimport --version"
     exit
