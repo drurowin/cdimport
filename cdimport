@@ -26,7 +26,7 @@
 
 [[ -z $CDIMPORT_DEST ]] && CDIMPORT_DEST=$HOME/Music/cdimport
 
-VERSION='1.2'
+VERSION='1.3'
 
 [[ $# -eq 0 ]] && {
     echo "Usage: cdimport [-nT] [-d input] [-e extension] [-F ffmpeg] [-f metapath]"
