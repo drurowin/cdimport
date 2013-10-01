@@ -70,7 +70,7 @@ while test ! -z "$1"; do
             value=$2
             shift 2
         }
-        name=$(print -- $name | gawk '{print tolower($0)}')
+        name=$(print -- ${(L)name})
         [[ -z $track ]] && {
             metadata[$name]=$value
         } || {
@@ -159,10 +159,6 @@ function check() {
     }
 }
 
-function escape() {
-    echo \'$(echo $1 | sed "s/'/'\\\''/g")\'
-}
-
 function sanitize() {
     echo $(echo $1 | sed 's/\[//g;s/\]//g;s/['\''"(){}:]//g;s/[ ]\{2,\}/ /g;s/\///g')
 }
@@ -201,9 +197,9 @@ for f in $FILES; do
     }
     TITLE=$(echo ${TITLE%.*} | sed $'s/^[ \t]*//;s/[ \t]*$//')
 
-    CMD="$FFMPEG -i $(escape "$DIR/$FILE")"
+    CMD="$FFMPEG -i ${(qq)DIR}/${(qq)FILE}"
     [[ -r $FFMETAFILE && -f $FFMETAFILE ]] && {
-        CMD+=" -i $(escape "$FFMETAFILE") -map_metadata 0:1"
+        CMD+=" -i ${(qq)FFMETAFILE} -map_metadata 0:1"
         FFTITLE=$(gawk 'BEGIN {FS="="} /^title=/ {print $NF}' $FFMETAFILE)
         ALBUM=$(gawk 'BEGIN {FS="="} /^album=/ {print $NF}' $FFMETAFILE)
         ARTIST=$(gawk 'BEGIN {FS="="} /^artist=/ {print $NF}' $FFMETAFILE)
@@ -223,10 +219,10 @@ for f in $FILES; do
                 ;;
             disc|discnumber)
                 DISC=$value
-                CMD+=" -metadata $meta=$(escape "$value")"
+                CMD+=" -metadata $meta=${(qq)value}"
                 ;;
             *)
-                CMD+=" -metadata $meta=$(escape "$value")"
+                CMD+=" -metadata $meta=${(qq)value}"
                 ;;
         esac
     done
@@ -244,7 +240,7 @@ for f in $FILES; do
     [[ ! -z $FFTITLE ]] && {
         TITLE=$FFTITLE
     } || {
-        CMD+=" -metadata title=$(escape "$TITLE")"
+        CMD+=" -metadata title=${(qq)TITLE}"
     }
     DISC=$(echo $DISC | gawk 'BEGIN {FS="/"} {print $1}')
     [[ ! -z $DISC && ! -z $TRK ]] && {
