@@ -301,7 +301,7 @@ while test ! -z "$1"; do
 done
 
 [[ ! -d $DIR ]] && {
-    DIR="[31m$DIR[0m"
+    DIR=$'\e[31m$DIR\e[0m'
     ERR+=1
 }
 
@@ -311,11 +311,11 @@ done
     ffmpeg >/dev/null 2>/dev/null
     case $? in
         126)
-            FFMPEG="[31mno exec[0m"
+            FFMPEG=$'\e[31mno exec\e[0m'
             ERR+=1
             ;;
         127)
-            FFMPEG="[31mno[0m"
+            FFMPEG=$'\e[31mno\e[0m'
             ERR+=1
             ;;
         *)
